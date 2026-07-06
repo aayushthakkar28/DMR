@@ -260,6 +260,27 @@
   .photo-btn:hover{background:var(--steel);color:#fff;}
   .hidden-file-input{display:none;}
 
+  .doc-slot-row{display:flex;gap:14px;flex-wrap:wrap;}
+  .doc-slot{flex:1;min-width:220px;}
+  .doc-slot-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;}
+  .thumb-btn{cursor:pointer;}
+  .doc-view-btn{
+    background:transparent;border:1.5px solid var(--line);color:var(--ink-soft);
+    border-radius:6px;font-size:11.5px;font-weight:600;padding:3px 8px;cursor:pointer;
+    margin-right:4px;white-space:nowrap;
+  }
+  .doc-view-btn:hover{border-color:var(--steel);color:var(--steel);}
+
+  .lightbox-overlay{
+    position:fixed;inset:0;background:rgba(28,34,38,0.82);z-index:200;
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .lightbox-img{max-width:92vw;max-height:88vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);}
+  .lightbox-close{
+    position:absolute;top:18px;right:24px;color:#fff;font-size:28px;
+    background:none;border:none;cursor:pointer;line-height:1;
+  }
+
   .cat-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px;}
   .cat-chip{
     border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);
@@ -525,16 +546,12 @@ async function analyzeImage(dataUrl, promptText){
   return text;
 }
 
-const MATERIAL_PROMPT = "You are looking at a photo taken at a construction site delivery point. Identify the primary construction material shown (for example: RMC, Steel, Cement OPC/PPC, Sand, Aggregate, Plaster Sand, 6mm Greet, 60/40 mm Aggregate, Murum, Brick, Binding Wire, Fabrication Pipes/Patti/Angles, Door Frames, Cover 25mm/40mm/50mm, Admixture Chemical, Kadappa/Granite, Plumbing Pipes CPVC/UPVC, CP Fittings, Plywood, Zinc Primer/Tarpen, Hardware, Tiles, Colours, Electric Fittings/Wires, Alluminium Windows, PVC Door, Kitchen Sink, French Door, or Other). Respond with ONLY the material name in 1-4 words, nothing else, no punctuation.";
+const MATERIAL_PROMPT = "You are looking at a photo taken at a construction site delivery point. Identify the primary construction material shown (for example: Cement, TMT Steel Bars, Sand, Aggregate/Gravel, Bricks, Blocks, Tiles, Timber/Wood, Paint, Electrical Fittings, Plumbing Pipes, RMC/Concrete, Glass, or Other). Respond with ONLY the material name in 1-4 words, nothing else, no punctuation.";
 
 const MATERIAL_CATEGORIES = [
-  "RMC","Steel","Cement OPC / PPC","Sand","Aggregate","Plaster Sand",
-  "6mm Greet","60/40 mm Aggregate","Murum","Brick 4\" & 6\"","Binding Wire",
-  "Fabrication Pipes / Patti / Angles","Door Frames","Cover 25mm / 40mm / 50mm",
-  "Admixture Chemical","Kadappa / Granite","Plumbing Pipes CPVC / UPVC",
-  "CP Fittings","Dr. Dixit Chemical 302 / 301","Plywood","Zinc Primer / Tarpen",
-  "Hardware","Tiles","Colours","Electric Fittings / Wires","Alluminium Windows",
-  "PVC Door","Kitchen Sink","Neru","French Door","Other"
+  "Cement","TMT Steel Bars","Sand","Aggregate/Gravel","Bricks","Blocks",
+  "Tiles","Timber/Wood","Paint","Electrical Fittings","Plumbing Pipes",
+  "RMC/Concrete","Glass","Hardware","Waterproofing","Other"
 ];
 const PLATE_PROMPT = "You are looking at a photo of a vehicle at a construction site. Find the license plate and read it exactly as printed. Respond with ONLY the plate number/text, nothing else. If no plate is visible or it cannot be read, respond with exactly: UNREADABLE";
 
@@ -859,6 +876,8 @@ function blankForm(loggedBy){
     vehicleNo: "",
     vehiclePhoto: "",
     invoiceNo: "",
+    billPhoto: "",
+    challanPhoto: "",
     rate: "",
     finalAmount: "",
     finalAmountTouched: false,
@@ -876,6 +895,11 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
   const matGalleryRef = useRef(null);
   const vehCameraRef = useRef(null);
   const vehGalleryRef = useRef(null);
+  const billCameraRef = useRef(null);
+  const billGalleryRef = useRef(null);
+  const challanCameraRef = useRef(null);
+  const challanGalleryRef = useRef(null);
+  const [lightbox,setLightbox] = useState(null);
 
   function startEdit(rec){
     setForm({...rec, finalAmountTouched:true});
@@ -901,11 +925,12 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
     });
   }
 
+  const PHOTO_FIELD = {material:"materialPhoto", vehicle:"vehiclePhoto", bill:"billPhoto", challan:"challanPhoto"};
   async function handlePhoto(kind, file){
     if(!file) return;
     try{
       const dataUrl = await resizeImage(file);
-      setField(kind==="material"?"materialPhoto":"vehiclePhoto", dataUrl);
+      setField(PHOTO_FIELD[kind], dataUrl);
     }catch(e){
       showToast("Could not read that photo — try another.");
     }
@@ -1055,6 +1080,52 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
             <label>Invoice / Challan No.</label>
             <input className="mono-input" type="text" value={form.invoiceNo} onChange={e=>setField("invoiceNo",e.target.value)} />
           </div>
+
+          <div className="field span3">
+            <label>Bill &amp; Challan Photos</label>
+            <div className="doc-slot-row">
+              <div className="doc-slot">
+                <div className="doc-slot-label">Bill Photo</div>
+                <div className="photo-slot">
+                  <div className="photo-row">
+                    {form.billPhoto ? (
+                      <img className="thumb thumb-btn" src={form.billPhoto} onClick={()=>setLightbox(form.billPhoto)} />
+                    ) : <div className="thumb-empty">No photo</div>}
+                    <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+                      <div className="photo-btn-row">
+                        <input ref={billCameraRef} className="hidden-file-input" type="file" accept="image/*" capture="environment" onChange={e=>{handlePhoto("bill", e.target.files[0]); e.target.value="";}} />
+                        <button type="button" className="photo-btn" onClick={()=>billCameraRef.current.click()}>📷 Take Photo</button>
+                        <input ref={billGalleryRef} className="hidden-file-input" type="file" accept="image/*" onChange={e=>{handlePhoto("bill", e.target.files[0]); e.target.value="";}} />
+                        <button type="button" className="photo-btn" onClick={()=>billGalleryRef.current.click()}>🖼️ Gallery</button>
+                      </div>
+                      {form.billPhoto && <button type="button" className="btn-danger-text" style={{padding:0,alignSelf:"flex-start"}} onClick={()=>setField("billPhoto","")}>Remove photo</button>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="doc-slot">
+                <div className="doc-slot-label">Challan Photo</div>
+                <div className="photo-slot">
+                  <div className="photo-row">
+                    {form.challanPhoto ? (
+                      <img className="thumb thumb-btn" src={form.challanPhoto} onClick={()=>setLightbox(form.challanPhoto)} />
+                    ) : <div className="thumb-empty">No photo</div>}
+                    <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+                      <div className="photo-btn-row">
+                        <input ref={challanCameraRef} className="hidden-file-input" type="file" accept="image/*" capture="environment" onChange={e=>{handlePhoto("challan", e.target.files[0]); e.target.value="";}} />
+                        <button type="button" className="photo-btn" onClick={()=>challanCameraRef.current.click()}>📷 Take Photo</button>
+                        <input ref={challanGalleryRef} className="hidden-file-input" type="file" accept="image/*" onChange={e=>{handlePhoto("challan", e.target.files[0]); e.target.value="";}} />
+                        <button type="button" className="photo-btn" onClick={()=>challanGalleryRef.current.click()}>🖼️ Gallery</button>
+                      </div>
+                      {form.challanPhoto && <button type="button" className="btn-danger-text" style={{padding:0,alignSelf:"flex-start"}} onClick={()=>setField("challanPhoto","")}>Remove photo</button>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="field">
             <label>Rate (per unit)</label>
             <input type="number" min="0" step="any" placeholder="0.00" value={form.rate} onChange={e=>setField("rate",e.target.value)} />
@@ -1098,11 +1169,11 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
           <thead>
             <tr>
               <th>DMR No.</th><th>Date</th><th>Supplier</th><th>Material</th><th>Qty</th>
-              <th>Vehicle</th><th>Amount</th><th>Status</th><th>Logged By</th><th></th>
+              <th>Vehicle</th><th>Amount</th><th>Status</th><th>Docs</th><th>Logged By</th><th></th>
             </tr>
           </thead>
           <tbody>
-            {recent.length===0 && <tr className="empty-row"><td colSpan="10">No deliveries logged yet. Use the form above to add the first one.</td></tr>}
+            {recent.length===0 && <tr className="empty-row"><td colSpan="11">No deliveries logged yet. Use the form above to add the first one.</td></tr>}
             {recent.map(r=>(
               <tr key={r.id}>
                 <td className="mono">{r.dmrNo}</td>
@@ -1113,6 +1184,11 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
                 <td className="mono">{r.vehicleNo||"—"}</td>
                 <td className="mono">{inr(r.finalAmount)}</td>
                 <td><span className={"status-chip "+(r.paid==="paid"?"status-paid":"status-unpaid")}>{r.paid==="paid"?"Paid":"Unpaid"}</span></td>
+                <td>
+                  {r.billPhoto && <button type="button" className="doc-view-btn" onClick={()=>setLightbox(r.billPhoto)}>Bill</button>}
+                  {r.challanPhoto && <button type="button" className="doc-view-btn" onClick={()=>setLightbox(r.challanPhoto)}>Challan</button>}
+                  {!r.billPhoto && !r.challanPhoto && "—"}
+                </td>
                 <td>{r.loggedBy||"—"}</td>
                 <td>
                   <button className="btn-danger-text" style={{color:"var(--steel)"}} onClick={()=>startEdit(r)}>Edit</button>
@@ -1124,6 +1200,13 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
         </table>
         </div>
       </div>
+
+      {lightbox && (
+        <div className="lightbox-overlay" onClick={()=>setLightbox(null)}>
+          <button className="lightbox-close" onClick={()=>setLightbox(null)}>&times;</button>
+          <img className="lightbox-img" src={lightbox} onClick={e=>e.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
 }
