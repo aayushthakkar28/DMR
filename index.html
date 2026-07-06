@@ -17,6 +17,30 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.25.0/babel.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot,
+    runTransaction, getDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7ZLOVXUKEcZcdmBLwI44ALi0qzCXzYeA",
+    authDomain: "dmr-c039a.firebaseapp.com",
+    projectId: "dmr-c039a",
+    storageBucket: "dmr-c039a.firebasestorage.app",
+    messagingSenderId: "74935707380",
+    appId: "1:74935707380:web:064b7797012296cd2ca0a1"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.dmrFirebase = {
+    db, collection, doc, setDoc, deleteDoc, onSnapshot, runTransaction, getDoc
+  };
+  window.dispatchEvent(new Event("firebase-ready"));
+</script>
 <style>
   :root{
     --ink:#1C2226;
@@ -393,33 +417,59 @@
 <script type="text/babel" data-presets="react">
 const {useState,useEffect,useMemo,useRef,useCallback} = React;
 
-/* ---------------- storage ---------------- */
-const STORE_KEY = "dmr_records_v1";
-const SEQ_KEY = "dmr_seq_v1";
-const AUTH_KEY = "dmr_users_v1";
+/* ---------------- storage (Firestore-backed) ---------------- */
+function waitForFirebase(){
+  return new Promise((resolve)=>{
+    if(window.dmrFirebase){ resolve(window.dmrFirebase); return; }
+    window.addEventListener("firebase-ready", ()=>resolve(window.dmrFirebase), {once:true});
+  });
+}
 
-function loadRecords(){
-  try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }catch(e){ return []; }
+async function saveRecordRemote(rec){
+  const fb = await waitForFirebase();
+  const clean = {...rec};
+  await fb.setDoc(fb.doc(fb.db, "records", clean.id), clean);
 }
-function saveRecords(recs){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(recs)); }catch(e){ console.error("Storage save failed", e); }
+async function deleteRecordRemote(id){
+  const fb = await waitForFirebase();
+  await fb.deleteDoc(fb.doc(fb.db, "records", id));
 }
-function nextDmrNo(){
-  let n = parseInt(localStorage.getItem(SEQ_KEY) || "0", 10) + 1;
-  localStorage.setItem(SEQ_KEY, String(n));
+function subscribeRecords(onData){
+  waitForFirebase().then((fb)=>{
+    fb.onSnapshot(fb.collection(fb.db, "records"), (snap)=>{
+      const recs = snap.docs.map(d=>d.data());
+      recs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      onData(recs);
+    }, (err)=>{ console.error("records subscription failed", err); onData([]); });
+  });
+}
+
+async function nextDmrNo(){
+  const fb = await waitForFirebase();
+  const counterRef = fb.doc(fb.db, "config", "counter");
+  const n = await fb.runTransaction(fb.db, async (tx)=>{
+    const snap = await tx.get(counterRef);
+    const current = snap.exists() ? (snap.data().seq||0) : 0;
+    const next = current + 1;
+    tx.set(counterRef, {seq: next});
+    return next;
+  });
   return "DMR-" + String(n).padStart(4,"0");
 }
-function loadAuth(){
-  try{
-    const a = JSON.parse(localStorage.getItem(AUTH_KEY));
-    if(a && a.adminPin) return a;
-  }catch(e){}
-  const seeded = { adminPin: "1234", supervisors: [] };
-  localStorage.setItem(AUTH_KEY, JSON.stringify(seeded));
-  return seeded;
+
+const DEFAULT_AUTH = { adminPin: "1234", supervisors: [] };
+async function saveAuthRemote(auth){
+  const fb = await waitForFirebase();
+  await fb.setDoc(fb.doc(fb.db, "config", "auth"), auth);
 }
-function saveAuth(auth){
-  try{ localStorage.setItem(AUTH_KEY, JSON.stringify(auth)); }catch(e){ console.error("Auth save failed", e); }
+function subscribeAuth(onData){
+  waitForFirebase().then((fb)=>{
+    const authRef = fb.doc(fb.db, "config", "auth");
+    fb.onSnapshot(authRef, (snap)=>{
+      if(snap.exists()){ onData(snap.data()); }
+      else{ fb.setDoc(authRef, DEFAULT_AUTH); onData(DEFAULT_AUTH); }
+    }, (err)=>{ console.error("auth subscription failed", err); onData(DEFAULT_AUTH); });
+  });
 }
 
 /* ---------------- helpers ---------------- */
@@ -598,7 +648,7 @@ function LoginScreen({auth, onLogin}){
 }
 
 /* ---------------- Manage Users (Admin only) ---------------- */
-function ManageUsers({auth, setAuth, showToast}){
+function ManageUsers({auth, updateAuth, showToast}){
   const [curPin,setCurPin] = useState("");
   const [newPin,setNewPin] = useState("");
   const [newSupName,setNewSupName] = useState("");
@@ -609,7 +659,7 @@ function ManageUsers({auth, setAuth, showToast}){
     if(curPin!==auth.adminPin){ showToast("Current PIN is incorrect."); return; }
     if(!/^\d{4}$/.test(newPin)){ showToast("New PIN must be exactly 4 digits."); return; }
     const next = {...auth, adminPin:newPin};
-    setAuth(next); saveAuth(next);
+    updateAuth(next);
     setCurPin(""); setNewPin("");
     showToast("Admin PIN updated.");
   }
@@ -618,13 +668,13 @@ function ManageUsers({auth, setAuth, showToast}){
     if(!newSupName.trim()){ showToast("Enter a name."); return; }
     if(!/^\d{4}$/.test(newSupPin)){ showToast("Supervisor PIN must be exactly 4 digits."); return; }
     const next = {...auth, supervisors:[...auth.supervisors, {id:uid(), name:newSupName.trim(), pin:newSupPin}]};
-    setAuth(next); saveAuth(next);
+    updateAuth(next);
     setNewSupName(""); setNewSupPin("");
     showToast("Supervisor added.");
   }
   function removeSupervisor(id){
     const next = {...auth, supervisors:auth.supervisors.filter(s=>s.id!==id)};
-    setAuth(next); saveAuth(next);
+    updateAuth(next);
     showToast("Supervisor removed.");
   }
 
@@ -676,14 +726,19 @@ function ManageUsers({auth, setAuth, showToast}){
 
 /* ---------------- App ---------------- */
 function App(){
-  const [auth,setAuth] = useState(loadAuth);
+  const [auth,setAuth] = useState(DEFAULT_AUTH);
+  const [authLoaded,setAuthLoaded] = useState(false);
   const [user,setUser] = useState(null); // {role, name, id?}
   const [tab,setTab] = useState("user");
-  const [records,setRecords] = useState(loadRecords);
+  const [records,setRecords] = useState([]);
+  const [recordsLoaded,setRecordsLoaded] = useState(false);
   const [toast,setToast] = useState(null);
   const [editingId,setEditingId] = useState(null);
 
-  useEffect(()=>{ saveRecords(records); },[records]);
+  useEffect(()=>{
+    subscribeAuth((data)=>{ setAuth(data); setAuthLoaded(true); });
+    subscribeRecords((data)=>{ setRecords(data); setRecordsLoaded(true); });
+  },[]);
 
   const showToast = useCallback((msg)=>{
     setToast(msg);
@@ -691,15 +746,22 @@ function App(){
   },[]);
 
   function upsertRecord(rec){
+    const withTimestamp = {...rec, createdAt: rec.createdAt || Date.now()};
     setRecords(prev=>{
       const exists = prev.some(r=>r.id===rec.id);
-      if(exists) return prev.map(r=>r.id===rec.id?rec:r);
-      return [rec, ...prev];
+      if(exists) return prev.map(r=>r.id===rec.id?withTimestamp:r);
+      return [withTimestamp, ...prev];
     });
+    saveRecordRemote(withTimestamp).catch(()=>showToast("Could not sync to server — check your connection."));
   }
   function deleteRecord(id){
     setRecords(prev=>prev.filter(r=>r.id!==id));
+    deleteRecordRemote(id).catch(()=>showToast("Could not sync deletion — check your connection."));
     showToast("Entry deleted");
+  }
+  function updateAuth(next){
+    setAuth(next);
+    saveAuthRemote(next).catch(()=>showToast("Could not sync to server — check your connection."));
   }
   function handleLogout(){
     setUser(null);
@@ -714,6 +776,14 @@ function App(){
     setUser(u);
     setTab("user");
     setEditingId(null);
+  }
+
+  if(!authLoaded || !recordsLoaded){
+    return (
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:12,color:"#4B565C",fontFamily:"Inter,sans-serif"}}>
+        <div>Connecting to server…</div>
+      </div>
+    );
   }
 
   if(!user){
@@ -762,7 +832,7 @@ function App(){
           <AdminPortal records={records} suppliers={suppliers} materials={materials} />
         )}
         {tab==="users" && isAdmin && (
-          <ManageUsers auth={auth} setAuth={setAuth} showToast={showToast} />
+          <ManageUsers auth={auth} updateAuth={updateAuth} showToast={showToast} />
         )}
       </div>
 
@@ -775,7 +845,7 @@ function App(){
 function blankForm(loggedBy){
   return {
     id: uid(),
-    dmrNo: nextDmrNo(),
+    dmrNo: "",
     date: todayISO(),
     supplier: "",
     material: "",
@@ -856,18 +926,29 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
     }
   }
 
-  function handleSubmit(e){
+  const [saving,setSaving] = useState(false);
+  async function handleSubmit(e){
     e.preventDefault();
     if(!form.supplier.trim() || !form.material.trim() || !form.qty){
       showToast("Supplier, Material and Qty are required.");
       return;
     }
-    const clean = {...form};
-    delete clean.finalAmountTouched;
-    if(!clean.loggedBy) clean.loggedBy = currentUser.name;
-    upsertRecord(clean);
-    showToast(editingId ? "Entry updated" : "Entry saved: " + form.dmrNo);
-    resetForm();
+    setSaving(true);
+    try{
+      const clean = {...form};
+      delete clean.finalAmountTouched;
+      if(!clean.loggedBy) clean.loggedBy = currentUser.name;
+      if(!clean.dmrNo || !clean.dmrNo.trim()){
+        clean.dmrNo = await nextDmrNo();
+      }
+      upsertRecord(clean);
+      showToast(editingId ? "Entry updated" : "Entry saved: " + clean.dmrNo);
+      resetForm();
+    }catch(err){
+      showToast("Could not save — check your connection and try again.");
+    }finally{
+      setSaving(false);
+    }
   }
 
   const visibleRecords = isAdmin ? records : records.filter(r=>r.loggedBy===currentUser.name);
@@ -882,7 +963,7 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
         <div className="form-grid">
           <div className="field">
             <label>DMR No.</label>
-            <input className="mono-input" type="text" value={form.dmrNo} onChange={e=>setField("dmrNo",e.target.value)} />
+            <input className="mono-input" type="text" placeholder="Auto-assigned on save" value={form.dmrNo} onChange={e=>setField("dmrNo",e.target.value)} />
           </div>
           <div className="field">
             <label>Date of Arrival</label>
@@ -999,7 +1080,7 @@ function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, 
 
         <div className="form-actions">
           {editingId && <button type="button" className="btn btn-ghost" onClick={resetForm}>Cancel edit</button>}
-          <button type="submit" className="btn btn-primary">{editingId ? "Update Entry" : "Save Entry"}</button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : (editingId ? "Update Entry" : "Save Entry")}</button>
         </div>
       </form>
 
