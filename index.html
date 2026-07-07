@@ -1,1 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DMR — Daily Material Report</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1C2226">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DMR">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.25.0/babel.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+  import {
+    getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot,
+    runTransaction, getDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
+  const firebaseConfig = {
+    apiKey: "AIzaSyA7ZLOVXUKEcZcdmBLwI44ALi0qzCXzYeA",
+    authDomain: "dmr-c039a.firebaseapp.com",
+    projectId: "dmr-c039a",
+    storageBucket: "dmr-c039a.firebasestorage.app",
+    messagingSenderId: "74935707380",
+    appId: "1:74935707380:web:064b7797012296cd2ca0a1"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.dmrFirebase = {
+    db, collection, doc, setDoc, deleteDoc, onSnapshot, runTransaction, getDoc
+  };
+  window.dispatchEvent(new Event("firebase-ready"));
+</script>
+<style>
+  :root{
+    --ink:#1C2226;
+    --ink-soft:#4B565C;
+    --paper:#EFF2F1;
+    --card:#FFFFFF;
+    --steel:#4A6178;
+    --steel-dim:#DCE3E6;
+    --safety:#E8622C;
+    --safety-dim:#FBE2D4;
+    --amber:#C4831F;
+    --amber-dim:#F6E7CC;
+    --pine:#2F7A54;
+    --pine-dim:#DCEEE2;
+    --line:#D6DAD8;
+    --shadow: 0 2px 10px rgba(28,34,38,0.06), 0 1px 2px rgba(28,34,38,0.05);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #root{min-height:100vh;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Barlow Condensed',sans-serif;}
+
+  /* ---------- Header ---------- */
+  .topbar{
+    background:var(--ink);
+    color:#fff;
+    padding:14px 24px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    position:sticky;
+    top:0;
+    z-index:50;
+    box-shadow:0 2px 8px rgba(0,0,0,0.15);
+    flex-wrap:wrap;
+  }
+  .badge{
+    background:var(--safety);
+    color:#fff;
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:1px;
+    padding:5px 10px;
+    border-radius:4px;
+    line-height:1;
+  }
+  .title-block{display:flex;flex-direction:column;margin-right:auto;}
+  .title-block .t1{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:600;letter-spacing:0.5px;line-height:1.1;}
+  .title-block .t2{font-size:11px;color:#B7C0C4;letter-spacing:0.5px;}
+  .tabs{display:flex;gap:4px;background:rgba(255,255,255,0.08);padding:4px;border-radius:8px;}
+  .tab-btn{
+    border:none;
+    background:transparent;
+    color:#C7CDCF;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    padding:8px 16px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .tab-btn.active{background:var(--safety);color:#fff;}
+  .tab-btn:not(.active):hover{color:#fff;}
+  .who{display:flex;align-items:center;gap:10px;}
+  .who-name{font-size:12.5px;color:#D6DBDC;text-align:right;line-height:1.2;}
+  .who-name b{color:#fff;display:block;font-size:13.5px;}
+  .logout-btn{
+    border:1.5px solid rgba(255,255,255,0.25);background:transparent;color:#EDEFEE;
+    font-size:12px;font-weight:600;padding:7px 13px;border-radius:6px;cursor:pointer;
+  }
+  .logout-btn:hover{border-color:#fff;background:rgba(255,255,255,0.08);}
+
+  .shell{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+  .section-title{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:26px;
+    font-weight:700;
+    letter-spacing:0.3px;
+    margin:0 0 4px 0;
+    text-transform:uppercase;
+  }
+  .section-sub{color:var(--ink-soft);font-size:13.5px;margin:0 0 20px 0;}
+
+  /* ---------- Clipboard card ---------- */
+  .clipboard{
+    background:var(--card);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    border:1px solid var(--line);
+    position:relative;
+    padding:28px 26px 24px;
+    margin-bottom:32px;
+  }
+  .clipboard::before{
+    content:"";
+    position:absolute;
+    top:-11px;
+    left:50%;
+    transform:translateX(-50%);
+    width:88px;
+    height:22px;
+    background:var(--steel);
+    border-radius:6px;
+    box-shadow:0 2px 4px rgba(0,0,0,0.15);
+  }
+  .clipboard::after{
+    content:"";
+    position:absolute;
+    top:-6px;
+    left:50%;
+    transform:translateX(-50%);
+    width:34px;
+    height:12px;
+    background:var(--ink);
+    border-radius:3px;
+  }
+  .form-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:18px 20px;
+  }
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field.span2{grid-column:span 2;}
+  .field.span3{grid-column:span 3;}
+  label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.6px;
+    text-transform:uppercase;
+    color:var(--steel);
+  }
+  input[type=text],input[type=number],input[type=date],input[type=password],select{
+    border:1.5px solid var(--line);
+    border-radius:6px;
+    padding:9px 11px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    background:#fff;
+    outline:none;
+    transition:border-color .15s;
+  }
+  input:focus,select:focus{border-color:var(--safety);}
+  .mono-input{font-family:'JetBrains Mono',monospace;}
+  .btn{
+    border:none;
+    border-radius:6px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    padding:10px 18px;
+    cursor:pointer;
+    transition:all .15s ease;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+  }
+  .btn-primary{background:var(--safety);color:#fff;}
+  .btn-primary:hover{background:#D2531F;}
+  .btn-primary:disabled{background:#E9B39C;cursor:not-allowed;}
+  .btn-steel{background:var(--steel);color:#fff;}
+  .btn-steel:hover{background:#3C5064;}
+  .btn-steel:disabled{background:#A9B7C1;cursor:not-allowed;}
+  .btn-ghost{background:transparent;color:var(--ink-soft);border:1.5px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--steel);color:var(--ink);}
+  .btn-danger-text{background:transparent;color:#B33A2E;font-size:12.5px;font-weight:600;border:none;cursor:pointer;padding:4px 6px;}
+
+  .photo-slot{
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    background:#FAFBFA;
+  }
+  .photo-row{display:flex;gap:10px;align-items:center;}
+  .thumb{
+    width:64px;height:64px;border-radius:6px;object-fit:cover;
+    border:1px solid var(--line);flex-shrink:0;background:#fff;
+  }
+  .thumb-empty{
+    width:64px;height:64px;border-radius:6px;flex-shrink:0;
+    background:var(--steel-dim);display:flex;align-items:center;justify-content:center;
+    font-size:10px;color:var(--steel);text-align:center;
+  }
+  .scan-wrap{position:relative;overflow:hidden;border-radius:6px;}
+  .scan-line{
+    position:absolute;left:0;right:0;height:2px;background:var(--safety);
+    box-shadow:0 0 8px var(--safety);
+    animation:scan 1.1s linear infinite;
+  }
+  @keyframes scan{0%{top:0;}100%{top:100%;}}
+  .file-input{font-size:12px;}
+  .detect-status{font-size:12px;color:var(--steel);font-weight:600;}
+  .detect-status.err{color:#B33A2E;}
+  .detect-status.ok{color:var(--pine);}
+
+  .photo-btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .photo-btn{
+    border:1.5px solid var(--steel);
+    background:#fff;color:var(--steel);
+    border-radius:6px;font-family:'Inter',sans-serif;font-weight:600;
+    font-size:12.5px;padding:8px 12px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:all .15s ease;
+  }
+  .photo-btn:hover{background:var(--steel);color:#fff;}
+  .hidden-file-input{display:none;}
+
+  .doc-slot-row{display:flex;gap:14px;flex-wrap:wrap;}
+  .doc-slot{flex:1;min-width:220px;}
+  .doc-slot-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;}
+  .thumb-btn{cursor:pointer;}
+  .doc-view-btn{
+    background:transparent;border:1.5px solid var(--line);color:var(--ink-soft);
+    border-radius:6px;font-size:11.5px;font-weight:600;padding:3px 8px;cursor:pointer;
+    margin-right:4px;white-space:nowrap;
+  }
+  .doc-view-btn:hover{border-color:var(--steel);color:var(--steel);}
+
+  .lightbox-overlay{
+    position:fixed;inset:0;background:rgba(28,34,38,0.82);z-index:200;
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .lightbox-img{max-width:92vw;max-height:88vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);}
+  .lightbox-close{
+    position:absolute;top:18px;right:24px;color:#fff;font-size:28px;
+    background:none;border:none;cursor:pointer;line-height:1;
+  }
+
+  .cat-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px;}
+  .cat-chip{
+    border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);
+    border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;
+    cursor:pointer;transition:all .15s ease;font-family:'Inter',sans-serif;
+  }
+  .cat-chip:hover{border-color:var(--steel);color:var(--ink);}
+  .cat-chip.sel{background:var(--pine-dim);border-color:var(--pine);color:var(--pine);}
+
+  .pay-row{display:flex;gap:16px;align-items:flex-end;}
+  .radio-group{display:flex;gap:8px;}
+  .radio-pill{
+    border:1.5px solid var(--line);border-radius:20px;padding:7px 14px;font-size:13px;font-weight:600;
+    cursor:pointer;color:var(--ink-soft);
+  }
+  .radio-pill.sel-paid{background:var(--pine-dim);border-color:var(--pine);color:var(--pine);}
+  .radio-pill.sel-unpaid{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+
+  .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line);}
+
+  /* ---------- Table ---------- */
+  .table-card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:28px;}
+  .table-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);}
+  .table-head h3{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:700;margin:0;text-transform:uppercase;letter-spacing:0.3px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{
+    text-align:left;padding:10px 16px;background:#F7F8F7;color:var(--steel);
+    font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;
+    border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  td{padding:11px 16px;border-bottom:1px solid #EDEFEE;vertical-align:middle;white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:#FAFBFA;}
+  .empty-row td{color:var(--ink-soft);font-style:italic;text-align:center;padding:36px;}
+  .status-chip{padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;letter-spacing:0.3px;}
+  .status-paid{background:var(--pine-dim);color:var(--pine);}
+  .status-unpaid{background:var(--amber-dim);color:var(--amber);}
+
+  /* ---------- Admin ---------- */
+  .filter-bar{
+    display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:16px 20px;box-shadow:var(--shadow);margin-bottom:22px;
+  }
+  .filter-bar .field{min-width:160px;}
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:26px;}
+  .stat-card{
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;box-shadow:var(--shadow);border-left:4px solid var(--steel);
+  }
+  .stat-card.orange{border-left-color:var(--safety);}
+  .stat-card.pine{border-left-color:var(--pine);}
+  .stat-card.amber{border-left-color:var(--amber);}
+  .stat-label{font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-soft);font-weight:700;margin-bottom:6px;}
+  .stat-value{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;}
+  .report-tabs{display:flex;gap:6px;margin-bottom:16px;}
+  .rtab{
+    border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);
+    font-weight:600;font-size:13px;padding:8px 16px;border-radius:20px;cursor:pointer;
+  }
+  .rtab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .group-name{font-weight:700;}
+  .bar-track{background:var(--steel-dim);border-radius:4px;height:6px;width:120px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:8px;}
+  .bar-fill{background:var(--safety);height:100%;}
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:11px 20px;border-radius:8px;
+    font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,0.25);
+    z-index:100;
+  }
+  .hint{font-size:11.5px;color:var(--ink-soft);}
+
+  /* ---------- Login ---------- */
+  .login-screen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(232,98,44,0.10), transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(74,97,120,0.18), transparent 45%),
+      var(--ink);
+    padding:20px;
+  }
+  .login-card{
+    background:var(--card);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.35);
+    width:100%;max-width:400px;padding:32px 30px 28px;position:relative;
+  }
+  .login-header{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px;}
+  .login-badge{background:var(--safety);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;letter-spacing:1.5px;padding:7px 14px;border-radius:6px;}
+  .login-title{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:0.4px;}
+  .login-sub{font-size:12.5px;color:var(--ink-soft);text-align:center;}
+
+  .role-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .role-card{
+    border:2px solid var(--line);border-radius:10px;padding:20px 12px;text-align:center;
+    cursor:pointer;transition:all .15s ease;background:#FAFBFA;
+  }
+  .role-card:hover{border-color:var(--steel);}
+  .role-card .ricon{font-size:26px;margin-bottom:8px;}
+  .role-card .rname{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;text-transform:uppercase;}
+  .role-card .rdesc{font-size:11px;color:var(--ink-soft);margin-top:3px;}
+  .role-card.admin:hover{border-color:var(--steel);background:#EEF1F3;}
+  .role-card.super:hover{border-color:var(--safety);background:var(--safety-dim);}
+
+  .back-link{background:none;border:none;color:var(--steel);font-size:12.5px;font-weight:600;cursor:pointer;padding:0;margin-bottom:14px;}
+  .back-link:hover{text-decoration:underline;}
+
+  .sup-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:220px;overflow-y:auto;}
+  .sup-item{
+    border:1.5px solid var(--line);border-radius:8px;padding:11px 14px;cursor:pointer;
+    display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:14px;
+  }
+  .sup-item:hover{border-color:var(--safety);background:var(--safety-dim);}
+  .sup-item.selected{border-color:var(--safety);background:var(--safety-dim);}
+
+  .dots-row{display:flex;justify-content:center;gap:14px;margin:18px 0;}
+  .dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);}
+  .dot.filled{background:var(--ink);border-color:var(--ink);}
+  .pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto;}
+  .pin-btn{
+    background:#F3F4F3;border:1px solid var(--line);border-radius:10px;padding:16px 0;
+    font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:600;cursor:pointer;color:var(--ink);
+  }
+  .pin-btn:hover{background:#E7E9E8;}
+  .pin-btn.action{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--steel);}
+  .login-error{color:#B33A2E;font-size:12.5px;text-align:center;font-weight:600;margin-top:10px;}
+  .login-hint{font-size:11px;color:var(--ink-soft);text-align:center;margin-top:14px;}
+
+  /* ---------- Manage users ---------- */
+  .users-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:22px;}
+  .panel h3{font-family:'Barlow Condensed',sans-serif;font-size:18px;text-transform:uppercase;margin:0 0 14px;}
+  .sup-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #EDEFEE;}
+  .sup-row:last-child{border-bottom:none;}
+  .sup-row .nm{font-weight:600;}
+  .sup-row .pn{font-family:'JetBrains Mono',monospace;color:var(--ink-soft);font-size:12.5px;margin-left:8px;}
+
+  @media (max-width:900px){
+    .form-grid{grid-template-columns:repeat(2,1fr);}
+    .field.span2,.field.span3{grid-column:span 2;}
+    .stat-row{grid-template-columns:repeat(2,1fr);}
+    .users-grid{grid-template-columns:1fr;}
+  }
+  @media (max-width:600px){
+    .form-grid{grid-template-columns:1fr;}
+    .field.span2,.field.span3{grid-column:span 1;}
+    .stat-row{grid-template-columns:1fr;}
+    .topbar{flex-wrap:wrap;}
+    .role-cards{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const {useState,useEffect,useMemo,useRef,useCallback} = React;
+
+/* ---------------- storage (Firestore-backed) ---------------- */
+function waitForFirebase(){
+  return new Promise((resolve)=>{
+    if(window.dmrFirebase){ resolve(window.dmrFirebase); return; }
+    window.addEventListener("firebase-ready", ()=>resolve(window.dmrFirebase), {once:true});
+  });
+}
+
+async function saveRecordRemote(rec){
+  const fb = await waitForFirebase();
+  const clean = {...rec};
+  await fb.setDoc(fb.doc(fb.db, "records", clean.id), clean);
+}
+async function deleteRecordRemote(id){
+  const fb = await waitForFirebase();
+  await fb.deleteDoc(fb.doc(fb.db, "records", id));
+}
+function subscribeRecords(onData){
+  waitForFirebase().then((fb)=>{
+    fb.onSnapshot(fb.collection(fb.db, "records"), (snap)=>{
+      const recs = snap.docs.map(d=>d.data());
+      recs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      onData(recs);
+    }, (err)=>{ console.error("records subscription failed", err); onData([]); });
+  });
+}
+
+async function nextDmrNo(){
+  const fb = await waitForFirebase();
+  const counterRef = fb.doc(fb.db, "config", "counter");
+  const n = await fb.runTransaction(fb.db, async (tx)=>{
+    const snap = await tx.get(counterRef);
+    const current = snap.exists() ? (snap.data().seq||0) : 0;
+    const next = current + 1;
+    tx.set(counterRef, {seq: next});
+    return next;
+  });
+  return "DMR-" + String(n).padStart(4,"0");
+}
+
+const DEFAULT_AUTH = { adminPin: "1234", supervisors: [] };
+async function saveAuthRemote(auth){
+  const fb = await waitForFirebase();
+  await fb.setDoc(fb.doc(fb.db, "config", "auth"), auth);
+}
+function subscribeAuth(onData){
+  waitForFirebase().then((fb)=>{
+    const authRef = fb.doc(fb.db, "config", "auth");
+    fb.onSnapshot(authRef, (snap)=>{
+      if(snap.exists()){ onData(snap.data()); }
+      else{ fb.setDoc(authRef, DEFAULT_AUTH); onData(DEFAULT_AUTH); }
+    }, (err)=>{ console.error("auth subscription failed", err); onData(DEFAULT_AUTH); });
+  });
+}
+
+/* ---------------- helpers ---------------- */
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function inr(n){
+  const v = Number(n)||0;
+  return "₹" + v.toLocaleString("en-IN", {maximumFractionDigits:2});
+}
+function resizeImage(file, maxDim=700, quality=0.75){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(new Error("read failed"));
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>reject(new Error("image decode failed"));
+      img.onload = ()=>{
+        let {width,height} = img;
+        if(width>height && width>maxDim){ height=Math.round(height*maxDim/width); width=maxDim; }
+        else if(height>=width && height>maxDim){ width=Math.round(width*maxDim/height); height=maxDim; }
+        const canvas = document.createElement("canvas");
+        canvas.width=width; canvas.height=height;
+        canvas.getContext("2d").drawImage(img,0,0,width,height);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function analyzeImage(dataUrl, promptText){
+  const base64 = dataUrl.split(",")[1];
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1000,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type:"base64", media_type:"image/jpeg", data: base64 } },
+          { type: "text", text: promptText }
+        ]
+      }]
+    })
+  });
+  if(!response.ok){ throw new Error("API error " + response.status); }
+  const data = await response.json();
+  const text = (data.content || []).filter(b=>b.type==="text").map(b=>b.text).join(" ").trim();
+  if(!text) throw new Error("Empty response");
+  return text;
+}
+
+const MATERIAL_PROMPT = "You are looking at a photo taken at a construction site delivery point. Identify the primary construction material shown (for example: Cement, TMT Steel Bars, Sand, Aggregate/Gravel, Bricks, Blocks, Tiles, Timber/Wood, Paint, Electrical Fittings, Plumbing Pipes, RMC/Concrete, Glass, or Other). Respond with ONLY the material name in 1-4 words, nothing else, no punctuation.";
+
+const MATERIAL_CATEGORIES = [
+  "Cement","TMT Steel Bars","Sand","Aggregate/Gravel","Bricks","Blocks",
+  "Tiles","Timber/Wood","Paint","Electrical Fittings","Plumbing Pipes",
+  "RMC/Concrete","Glass","Hardware","Waterproofing","Other"
+];
+const PLATE_PROMPT = "You are looking at a photo of a vehicle at a construction site. Find the license plate and read it exactly as printed. Respond with ONLY the plate number/text, nothing else. If no plate is visible or it cannot be read, respond with exactly: UNREADABLE";
+
+/* ---------------- PIN pad ---------------- */
+function PinPad({length=4, onComplete, resetSignal}){
+  const [pin,setPin] = useState("");
+  useEffect(()=>{ setPin(""); },[resetSignal]);
+  function press(d){
+    if(pin.length>=length) return;
+    const next = pin+d;
+    setPin(next);
+    if(next.length===length){
+      setTimeout(()=>onComplete(next), 120);
+      setTimeout(()=>setPin(""), 350);
+    }
+  }
+  return (
+    <div>
+      <div className="dots-row">
+        {Array.from({length}).map((_,i)=>(
+          <div key={i} className={"dot "+(i<pin.length?"filled":"")}></div>
+        ))}
+      </div>
+      <div className="pinpad">
+        {[1,2,3,4,5,6,7,8,9].map(n=>(
+          <button key={n} type="button" className="pin-btn" onClick={()=>press(String(n))}>{n}</button>
+        ))}
+        <button type="button" className="pin-btn action" onClick={()=>setPin("")}>Clear</button>
+        <button key={0} type="button" className="pin-btn" onClick={()=>press("0")}>0</button>
+        <button type="button" className="pin-btn action" onClick={()=>setPin(p=>p.slice(0,-1))}>⌫</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Login ---------------- */
+function LoginScreen({auth, onLogin}){
+  const [stage,setStage] = useState("role"); // role | adminPin | supPick | supPin
+  const [selectedSup,setSelectedSup] = useState(null);
+  const [error,setError] = useState("");
+  const [resetSignal,setResetSignal] = useState(0);
+
+  function tryAdminPin(pin){
+    if(pin===auth.adminPin){ onLogin({role:"admin", name:"Admin"}); }
+    else{ setError("Incorrect PIN. Try again."); setResetSignal(s=>s+1); }
+  }
+  function trySupPin(pin){
+    if(selectedSup && pin===selectedSup.pin){ onLogin({role:"supervisor", name:selectedSup.name, id:selectedSup.id}); }
+    else{ setError("Incorrect PIN. Try again."); setResetSignal(s=>s+1); }
+  }
+
+  return (
+    <div className="login-screen">
+      <div className="login-card">
+        <div className="login-header">
+          <div className="login-badge">DMR</div>
+          <div className="login-title">Site Access</div>
+          <div className="login-sub">Daily Material Report — sign in to continue</div>
+        </div>
+
+        {stage==="role" && (
+          <div className="role-cards">
+            <div className="role-card admin" onClick={()=>{setError("");setStage("adminPin");}}>
+              <div className="ricon">🛠️</div>
+              <div className="rname">Admin</div>
+              <div className="rdesc">Reports &amp; management</div>
+            </div>
+            <div className="role-card super" onClick={()=>{setError("");setStage("supPick");}}>
+              <div className="ricon">📋</div>
+              <div className="rname">Supervisor</div>
+              <div className="rdesc">Log deliveries</div>
+            </div>
+          </div>
+        )}
+
+        {stage==="adminPin" && (
+          <div>
+            <button className="back-link" onClick={()=>{setStage("role");setError("");}}>← Back</button>
+            <p className="login-sub" style={{marginBottom:6}}>Enter Admin PIN</p>
+            <PinPad onComplete={tryAdminPin} resetSignal={resetSignal} />
+            {error && <div className="login-error">{error}</div>}
+            <div className="login-hint">First time here? Default admin PIN is 1234 — change it under Manage Users.</div>
+          </div>
+        )}
+
+        {stage==="supPick" && (
+          <div>
+            <button className="back-link" onClick={()=>{setStage("role");setError("");}}>← Back</button>
+            <p className="login-sub" style={{marginBottom:10}}>Select your name</p>
+            {auth.supervisors.length===0 ? (
+              <p className="login-error">No supervisor accounts yet. Ask your admin to add one under Manage Users.</p>
+            ) : (
+              <div className="sup-list">
+                {auth.supervisors.map(s=>(
+                  <div key={s.id} className="sup-item" onClick={()=>{setSelectedSup(s);setError("");setStage("supPin");}}>
+                    {s.name} <span style={{color:"var(--steel)"}}>→</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {stage==="supPin" && selectedSup && (
+          <div>
+            <button className="back-link" onClick={()=>{setStage("supPick");setError("");}}>← Back</button>
+            <p className="login-sub" style={{marginBottom:6}}>Enter PIN for <b>{selectedSup.name}</b></p>
+            <PinPad onComplete={trySupPin} resetSignal={resetSignal} />
+            {error && <div className="login-error">{error}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Manage Users (Admin only) ---------------- */
+function ManageUsers({auth, updateAuth, showToast}){
+  const [curPin,setCurPin] = useState("");
+  const [newPin,setNewPin] = useState("");
+  const [newSupName,setNewSupName] = useState("");
+  const [newSupPin,setNewSupPin] = useState("");
+
+  function changeAdminPin(e){
+    e.preventDefault();
+    if(curPin!==auth.adminPin){ showToast("Current PIN is incorrect."); return; }
+    if(!/^\d{4}$/.test(newPin)){ showToast("New PIN must be exactly 4 digits."); return; }
+    const next = {...auth, adminPin:newPin};
+    updateAuth(next);
+    setCurPin(""); setNewPin("");
+    showToast("Admin PIN updated.");
+  }
+  function addSupervisor(e){
+    e.preventDefault();
+    if(!newSupName.trim()){ showToast("Enter a name."); return; }
+    if(!/^\d{4}$/.test(newSupPin)){ showToast("Supervisor PIN must be exactly 4 digits."); return; }
+    const next = {...auth, supervisors:[...auth.supervisors, {id:uid(), name:newSupName.trim(), pin:newSupPin}]};
+    updateAuth(next);
+    setNewSupName(""); setNewSupPin("");
+    showToast("Supervisor added.");
+  }
+  function removeSupervisor(id){
+    const next = {...auth, supervisors:auth.supervisors.filter(s=>s.id!==id)};
+    updateAuth(next);
+    showToast("Supervisor removed.");
+  }
+
+  return (
+    <div>
+      <h2 className="section-title">Manage Users</h2>
+      <p className="section-sub">Control who can log in as Admin or Supervisor, and their PINs.</p>
+      <div className="users-grid">
+        <div className="panel">
+          <h3>Change Admin PIN</h3>
+          <form onSubmit={changeAdminPin} style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div className="field">
+              <label>Current PIN</label>
+              <input className="mono-input" type="password" maxLength="4" inputMode="numeric" value={curPin} onChange={e=>setCurPin(e.target.value.replace(/\D/g,""))} />
+            </div>
+            <div className="field">
+              <label>New PIN (4 digits)</label>
+              <input className="mono-input" type="password" maxLength="4" inputMode="numeric" value={newPin} onChange={e=>setNewPin(e.target.value.replace(/\D/g,""))} />
+            </div>
+            <button className="btn btn-primary" type="submit" style={{alignSelf:"flex-start"}}>Update PIN</button>
+          </form>
+        </div>
+
+        <div className="panel">
+          <h3>Supervisors</h3>
+          <form onSubmit={addSupervisor} style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+            <div className="field" style={{flex:1,minWidth:120}}>
+              <label>Name</label>
+              <input type="text" value={newSupName} onChange={e=>setNewSupName(e.target.value)} placeholder="e.g. Ramesh Patil" />
+            </div>
+            <div className="field" style={{width:110}}>
+              <label>PIN</label>
+              <input className="mono-input" type="password" maxLength="4" inputMode="numeric" value={newSupPin} onChange={e=>setNewSupPin(e.target.value.replace(/\D/g,""))} />
+            </div>
+            <button className="btn btn-steel" type="submit" style={{alignSelf:"flex-end"}}>Add</button>
+          </form>
+          {auth.supervisors.length===0 && <p className="hint">No supervisors added yet.</p>}
+          {auth.supervisors.map(s=>(
+            <div className="sup-row" key={s.id}>
+              <div><span className="nm">{s.name}</span><span className="pn">PIN {s.pin}</span></div>
+              <button className="btn-danger-text" onClick={()=>removeSupervisor(s.id)}>Remove</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- App ---------------- */
+function App(){
+  const [auth,setAuth] = useState(DEFAULT_AUTH);
+  const [authLoaded,setAuthLoaded] = useState(false);
+  const [user,setUser] = useState(null); // {role, name, id?}
+  const [tab,setTab] = useState("user");
+  const [records,setRecords] = useState([]);
+  const [recordsLoaded,setRecordsLoaded] = useState(false);
+  const [toast,setToast] = useState(null);
+  const [editingId,setEditingId] = useState(null);
+
+  useEffect(()=>{
+    subscribeAuth((data)=>{ setAuth(data); setAuthLoaded(true); });
+    subscribeRecords((data)=>{ setRecords(data); setRecordsLoaded(true); });
+  },[]);
+
+  const showToast = useCallback((msg)=>{
+    setToast(msg);
+    const isError = typeof msg === "string" && msg.indexOf("SYNC FAILED") === 0;
+    setTimeout(()=>setToast(null), isError ? 8000 : 2600);
+  },[]);
+
+  function upsertRecord(rec){
+    const withTimestamp = {...rec, createdAt: rec.createdAt || Date.now()};
+    setRecords(prev=>{
+      const exists = prev.some(r=>r.id===rec.id);
+      if(exists) return prev.map(r=>r.id===rec.id?withTimestamp:r);
+      return [withTimestamp, ...prev];
+    });
+    saveRecordRemote(withTimestamp).catch((err)=>{
+      console.error("saveRecordRemote failed:", err);
+      showToast("SYNC FAILED: " + (err && err.message ? err.message : String(err)));
+    });
+  }
+  function deleteRecord(id){
+    setRecords(prev=>prev.filter(r=>r.id!==id));
+    deleteRecordRemote(id).catch((err)=>{
+      console.error("deleteRecordRemote failed:", err);
+      showToast("SYNC FAILED: " + (err && err.message ? err.message : String(err)));
+    });
+    showToast("Entry deleted");
+  }
+  function updateAuth(next){
+    setAuth(next);
+    saveAuthRemote(next).catch((err)=>{
+      console.error("saveAuthRemote failed:", err);
+      showToast("SYNC FAILED: " + (err && err.message ? err.message : String(err)));
+    });
+  }
+  function handleLogout(){
+    setUser(null);
+    setTab("user");
+    setEditingId(null);
+  }
+
+  const suppliers = useMemo(()=>[...new Set(records.map(r=>r.supplier).filter(Boolean))].sort(),[records]);
+  const materials = useMemo(()=>[...new Set(records.map(r=>r.material).filter(Boolean))].sort(),[records]);
+
+  function handleLogin(u){
+    setUser(u);
+    setTab("user");
+    setEditingId(null);
+  }
+
+  if(!authLoaded || !recordsLoaded){
+    return (
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",flexDirection:"column",gap:12,color:"#4B565C",fontFamily:"Inter,sans-serif"}}>
+        <div>Connecting to server…</div>
+      </div>
+    );
+  }
+
+  if(!user){
+    return <LoginScreen auth={auth} onLogin={handleLogin} />;
+  }
+
+  const isAdmin = user.role==="admin";
+
+  return (
+    <div>
+      <div className="topbar">
+        <div className="badge">DMR</div>
+        <div className="title-block">
+          <div className="t1">Daily Material Report</div>
+          <div className="t2">Site Delivery &amp; Payment Tracker</div>
+        </div>
+        {isAdmin && (
+          <div className="tabs">
+            <button className={"tab-btn "+(tab==="user"?"active":"")} onClick={()=>setTab("user")}>Entry Form</button>
+            <button className={"tab-btn "+(tab==="admin"?"active":"")} onClick={()=>setTab("admin")}>Reports</button>
+            <button className={"tab-btn "+(tab==="users"?"active":"")} onClick={()=>setTab("users")}>Manage Users</button>
+          </div>
+        )}
+        <div className="who">
+          <div className="who-name"><b>{user.name}</b>{isAdmin?"Admin":"Supervisor"}</div>
+          <button className="logout-btn" onClick={handleLogout}>Log out</button>
+        </div>
+      </div>
+
+      <div className="shell">
+        {tab==="user" && (
+          <UserPortal
+            records={records}
+            suppliers={suppliers}
+            materials={materials}
+            upsertRecord={upsertRecord}
+            deleteRecord={deleteRecord}
+            showToast={showToast}
+            editingId={editingId}
+            setEditingId={setEditingId}
+            currentUser={user}
+            isAdmin={isAdmin}
+          />
+        )}
+        {tab==="admin" && isAdmin && (
+          <AdminPortal records={records} suppliers={suppliers} materials={materials} />
+        )}
+        {tab==="users" && isAdmin && (
+          <ManageUsers auth={auth} updateAuth={updateAuth} showToast={showToast} />
+        )}
+      </div>
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+/* ---------------- User Portal ---------------- */
+function blankForm(loggedBy){
+  return {
+    id: uid(),
+    dmrNo: "",
+    date: todayISO(),
+    supplier: "",
+    material: "",
+    materialPhoto: "",
+    qty: "",
+    unit: "Bags",
+    vehicleNo: "",
+    vehiclePhoto: "",
+    invoiceNo: "",
+    billPhoto: "",
+    challanPhoto: "",
+    rate: "",
+    finalAmount: "",
+    finalAmountTouched: false,
+    paid: "unpaid",
+    paymentDate: "",
+    loggedBy: loggedBy || "",
+  };
+}
+
+function UserPortal({records, suppliers, materials, upsertRecord, deleteRecord, showToast, editingId, setEditingId, currentUser, isAdmin}){
+  const [form,setForm] = useState(()=>blankForm(currentUser.name));
+  const [matStatus,setMatStatus] = useState(null);
+  const [plateStatus,setPlateStatus] = useState(null);
+  const matCameraRef = useRef(null);
+  const matGalleryRef = useRef(null);
+  const vehCameraRef = useRef(null);
+  const vehGalleryRef = useRef(null);
+  const billCameraRef = useRef(null);
+  const billGalleryRef = useRef(null);
+  const challanCameraRef = useRef(null);
+  const challanGalleryRef = useRef(null);
+  const [lightbox,setLightbox] = useState(null);
+
+  function startEdit(rec){
+    setForm({...rec, finalAmountTouched:true});
+    setEditingId(rec.id);
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+  function resetForm(){
+    setForm(blankForm(currentUser.name));
+    setEditingId(null);
+    setMatStatus(null);
+    setPlateStatus(null);
+  }
+
+  function setField(key,val){
+    setForm(prev=>{
+      const next = {...prev,[key]:val};
+      if((key==="qty" || key==="rate") && !prev.finalAmountTouched){
+        const q = parseFloat(key==="qty"?val:prev.qty)||0;
+        const r = parseFloat(key==="rate"?val:prev.rate)||0;
+        next.finalAmount = (q*r) ? String(Math.round(q*r*100)/100) : "";
+      }
+      return next;
+    });
+  }
+
+  const PHOTO_FIELD = {material:"materialPhoto", vehicle:"vehiclePhoto", bill:"billPhoto", challan:"challanPhoto"};
+  async function handlePhoto(kind, file){
+    if(!file) return;
+    try{
+      const dataUrl = await resizeImage(file);
+      setField(PHOTO_FIELD[kind], dataUrl);
+    }catch(e){
+      showToast("Could not read that photo — try another.");
+    }
+  }
+
+  async function detect(kind){
+    const dataUrl = kind==="material" ? form.materialPhoto : form.vehiclePhoto;
+    if(!dataUrl){ showToast("Add a photo first."); return; }
+    const setStatus = kind==="material" ? setMatStatus : setPlateStatus;
+    setStatus({state:"scanning", msg:"Scanning photo…"});
+    try{
+      const prompt = kind==="material" ? MATERIAL_PROMPT : PLATE_PROMPT;
+      const result = await analyzeImage(dataUrl, prompt);
+      if(kind==="plate" && result.toUpperCase().includes("UNREADABLE")){
+        setStatus({state:"err", msg:"Plate not readable — enter manually."});
+      }else{
+        setField(kind==="material"?"material":"vehicleNo", result);
+        setStatus({state:"ok", msg:"Detected: " + result});
+      }
+    }catch(e){
+      setStatus({state:"err", msg:"Detection failed — enter manually."});
+    }
+  }
+
+  const [saving,setSaving] = useState(false);
+  async function handleSubmit(e){
+    e.preventDefault();
+    if(!form.supplier.trim() || !form.material.trim() || !form.qty){
+      showToast("Supplier, Material and Qty are required.");
+      return;
+    }
+    setSaving(true);
+    try{
+      const clean = {...form};
+      delete clean.finalAmountTouched;
+      if(!clean.loggedBy) clean.loggedBy = currentUser.name;
+      if(!clean.dmrNo || !clean.dmrNo.trim()){
+        clean.dmrNo = await nextDmrNo();
+      }
+      upsertRecord(clean);
+      showToast(editingId ? "Entry updated" : "Entry saved: " + clean.dmrNo);
+      resetForm();
+    }catch(err){
+      showToast("Could not save — check your connection and try again.");
+    }finally{
+      setSaving(false);
+    }
+  }
+
+  const visibleRecords = isAdmin ? records : records.filter(r=>r.loggedBy===currentUser.name);
+  const recent = visibleRecords.slice(0,25);
+
+  return (
+    <div>
+      <h2 className="section-title">Log a Delivery</h2>
+      <p className="section-sub">Fill in the details as material arrives on site. Photos help auto-fill the material type and vehicle number.</p>
+
+      <form className="clipboard" onSubmit={handleSubmit}>
+        <div className="form-grid">
+          <div className="field">
+            <label>DMR No.</label>
+            <input className="mono-input" type="text" placeholder="Auto-assigned on save" value={form.dmrNo} onChange={e=>setField("dmrNo",e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Date of Arrival</label>
+            <input type="date" value={form.date} onChange={e=>setField("date",e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Supplier Name</label>
+            <input list="supplier-list" type="text" placeholder="e.g. Shree Cement Suppliers" value={form.supplier} onChange={e=>setField("supplier",e.target.value)} />
+            <datalist id="supplier-list">{suppliers.map(s=><option key={s} value={s}/>)}</datalist>
+          </div>
+
+          <div className="field span2">
+            <label>Material (photo auto-detect)</label>
+            <div className="photo-slot">
+              <div className="photo-row">
+                {form.materialPhoto ? (
+                  <div className={"scan-wrap"}>
+                    <img className="thumb" src={form.materialPhoto} />
+                    {matStatus && matStatus.state==="scanning" && <div className="scan-line"></div>}
+                  </div>
+                ) : <div className="thumb-empty">No photo</div>}
+                <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+                  <div className="photo-btn-row">
+                    <input ref={matCameraRef} className="hidden-file-input" type="file" accept="image/*" capture="environment" onChange={e=>{handlePhoto("material", e.target.files[0]); e.target.value="";}} />
+                    <button type="button" className="photo-btn" onClick={()=>matCameraRef.current.click()}>📷 Take Photo</button>
+                    <input ref={matGalleryRef} className="hidden-file-input" type="file" accept="image/*" onChange={e=>{handlePhoto("material", e.target.files[0]); e.target.value="";}} />
+                    <button type="button" className="photo-btn" onClick={()=>matGalleryRef.current.click()}>🖼️ Choose from Gallery</button>
+                  </div>
+                  <button type="button" className="btn btn-steel" style={{alignSelf:"flex-start",padding:"6px 12px",fontSize:12}} disabled={!form.materialPhoto || matStatus?.state==="scanning"} onClick={()=>detect("material")}>
+                    {matStatus?.state==="scanning" ? "Detecting…" : "Auto-detect material"}
+                  </button>
+                </div>
+              </div>
+              {matStatus && <div className={"detect-status " + (matStatus.state==="err"?"err":matStatus.state==="ok"?"ok":"")}>{matStatus.msg}</div>}
+              <div className="cat-chip-row">
+                {MATERIAL_CATEGORIES.map(cat=>(
+                  <button type="button" key={cat} className={"cat-chip "+(form.material===cat?"sel":"")} onClick={()=>setField("material",cat)}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              <input list="material-list" type="text" placeholder="Material name (or pick a category above)" value={form.material} onChange={e=>setField("material",e.target.value)} />
+              <datalist id="material-list">{materials.map(m=><option key={m} value={m}/>)}</datalist>
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Quantity</label>
+            <div style={{display:"flex",gap:8}}>
+              <input type="number" min="0" step="any" placeholder="0" value={form.qty} onChange={e=>setField("qty",e.target.value)} />
+              <select value={form.unit} onChange={e=>setField("unit",e.target.value)} style={{width:100}}>
+                {["Bags","Tons","Cu.M","Sq.Ft","Nos","Kg","Ltr","Truckload"].map(u=><option key={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="field span2">
+            <label>Vehicle Number (photo auto-detect)</label>
+            <div className="photo-slot">
+              <div className="photo-row">
+                {form.vehiclePhoto ? (
+                  <div className={"scan-wrap"}>
+                    <img className="thumb" src={form.vehiclePhoto} />
+                    {plateStatus && plateStatus.state==="scanning" && <div className="scan-line"></div>}
+                  </div>
+                ) : <div className="thumb-empty">No photo</div>}
+                <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+                  <div className="photo-btn-row">
+                    <input ref={vehCameraRef} className="hidden-file-input" type="file" accept="image/*" capture="environment" onChange={e=>{handlePhoto("vehicle", e.target.files[0]); e.target.value="";}} />
+                    <button type="button" className="photo-btn" onClick={()=>vehCameraRef.current.click()}>📷 Take Photo</button>
+                    <input ref={vehGalleryRef} className="hidden-file-input" type="file" accept="image/*" onChange={e=>{handlePhoto("vehicle", e.target.files[0]); e.target.value="";}} />
+                    <button type="button" className="photo-btn" onClick={()=>vehGalleryRef.current.click()}>🖼️ Choose from Gallery</button>
+                  </div>
+                  <button type="button" className="btn btn-steel" style={{alignSelf:"flex-start",padding:"6px 12px",fontSize:12}} disabled={!form.vehiclePhoto || plateStatus?.state==="scanning"} onClick={()=>detect("plate")}>
+                    {plateStatus?.state==="scanning" ? "Reading plate…" : "Auto-detect plate"}
+                  </button>
+                </div>
+              </div>
+              {plateStatus && <div className={"detect-status " + (plateStatus.state==="err"?"err":plateStatus.state==="ok"?"ok":"")}>{plateStatus.msg}</div>}
+              <input className="mono-input" type="text" placeholder="MH15 AB 1234" value={form.vehicleNo} onChange={e=>setField("vehicleNo",e.target.value.toUpperCase())} />
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Invoice / Challan No.</label>
+            <input className="mono-input" type="text" value={form.invoiceNo} onChange={e=>setField("invoiceNo",e.target.value)} />
+          </div>
+
+          <div className="field span3">
+            <label>Bill &amp; Challan Photos</label>
+            <div className="doc-slot-row">
+              <div className="doc-slot">
+                <div className="doc-slot-label">Bill Photo</div>
+                <div className="photo-slot">
+                  <div className="photo-row">
+                    {form.billPhoto ? (
+                      <img className="thumb thumb-btn" src={form.billPhoto} onClick={()=>setLightbox(form.billPhoto)} />
+                    ) : <div className="thumb-empty">No photo</div>}
+                    <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+                      <div className="photo-btn-row">
+                        <input ref={billCameraRef} className="hidden-file-input" type="file" accept="image/*" capture="environment" onChange={e=>{handlePhoto("bill", e.target.files[0]); e.target.value="";}} />
+                        <button type="button" className="photo-btn" onClick={()=>billCameraRef.current.click()}>📷 Take Photo</button>
+                        <input ref={billGalleryRef} className="hidden-file-input" type="file" accept="image/*" onChange={e=>{handlePhoto("bill", e.target.files[0]); e.target.value="";}} />
+                        <button type="button" className="photo-btn" onClick={()=>billGalleryRef.current.click()}>🖼️ Gallery</button>
+                      </div>
+                      {form.billPhoto && <button type="button" className="btn-danger-text" style={{padding:0,alignSelf:"flex-start"}} onClick={()=>setField("billPhoto","")}>Remove photo</button>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="doc-slot">
+                <div className="doc-slot-label">Challan Photo</div>
+                <div className="photo-slot">
+                  <div className="photo-row">
+                    {form.challanPhoto ? (
+                      <img className="thumb thumb-btn" src={form.challanPhoto} onClick={()=>setLightbox(form.challanPhoto)} />
+                    ) : <div className="thumb-empty">No photo</div>}
+                    <div style={{display:"flex",flexDirection:"column",gap:6,flex:1}}>
+                      <div className="photo-btn-row">
+                        <input ref={challanCameraRef} className="hidden-file-input" type="file" accept="image/*" capture="environment" onChange={e=>{handlePhoto("challan", e.target.files[0]); e.target.value="";}} />
+                        <button type="button" className="photo-btn" onClick={()=>challanCameraRef.current.click()}>📷 Take Photo</button>
+                        <input ref={challanGalleryRef} className="hidden-file-input" type="file" accept="image/*" onChange={e=>{handlePhoto("challan", e.target.files[0]); e.target.value="";}} />
+                        <button type="button" className="photo-btn" onClick={()=>challanGalleryRef.current.click()}>🖼️ Gallery</button>
+                      </div>
+                      {form.challanPhoto && <button type="button" className="btn-danger-text" style={{padding:0,alignSelf:"flex-start"}} onClick={()=>setField("challanPhoto","")}>Remove photo</button>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Rate (per unit)</label>
+            <input type="number" min="0" step="any" placeholder="0.00" value={form.rate} onChange={e=>setField("rate",e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Final Bill Amount</label>
+            <input type="number" min="0" step="any" placeholder="0.00" value={form.finalAmount}
+              onChange={e=>setForm(prev=>({...prev, finalAmount:e.target.value, finalAmountTouched:true}))} />
+          </div>
+
+          <div className="field span3">
+            <label>Payment Status</label>
+            <div className="pay-row">
+              <div className="radio-group">
+                <div className={"radio-pill "+(form.paid==="paid"?"sel-paid":"")} onClick={()=>setField("paid","paid")}>Paid</div>
+                <div className={"radio-pill "+(form.paid==="unpaid"?"sel-unpaid":"")} onClick={()=>setField("paid","unpaid")}>Not Paid</div>
+              </div>
+              {form.paid==="paid" && (
+                <div className="field" style={{minWidth:180}}>
+                  <label>Date of Payment</label>
+                  <input type="date" value={form.paymentDate} onChange={e=>setField("paymentDate",e.target.value)} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="form-actions">
+          {editingId && <button type="button" className="btn btn-ghost" onClick={resetForm}>Cancel edit</button>}
+          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : (editingId ? "Update Entry" : "Save Entry")}</button>
+        </div>
+      </form>
+
+      <div className="table-card">
+        <div className="table-head">
+          <h3>{isAdmin ? "Recent Entries" : "My Recent Entries"}</h3>
+          <span className="hint">{visibleRecords.length} total</span>
+        </div>
+        <div style={{overflowX:"auto"}}>
+        <table>
+          <thead>
+            <tr>
+              <th>DMR No.</th><th>Date</th><th>Supplier</th><th>Material</th><th>Qty</th>
+              <th>Vehicle</th><th>Amount</th><th>Status</th><th>Docs</th><th>Logged By</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {recent.length===0 && <tr className="empty-row"><td colSpan="11">No deliveries logged yet. Use the form above to add the first one.</td></tr>}
+            {recent.map(r=>(
+              <tr key={r.id}>
+                <td className="mono">{r.dmrNo}</td>
+                <td>{r.date}</td>
+                <td>{r.supplier}</td>
+                <td>{r.material}</td>
+                <td>{r.qty} {r.unit}</td>
+                <td className="mono">{r.vehicleNo||"—"}</td>
+                <td className="mono">{inr(r.finalAmount)}</td>
+                <td><span className={"status-chip "+(r.paid==="paid"?"status-paid":"status-unpaid")}>{r.paid==="paid"?"Paid":"Unpaid"}</span></td>
+                <td>
+                  {r.billPhoto && <button type="button" className="doc-view-btn" onClick={()=>setLightbox(r.billPhoto)}>Bill</button>}
+                  {r.challanPhoto && <button type="button" className="doc-view-btn" onClick={()=>setLightbox(r.challanPhoto)}>Challan</button>}
+                  {!r.billPhoto && !r.challanPhoto && "—"}
+                </td>
+                <td>{r.loggedBy||"—"}</td>
+                <td>
+                  <button className="btn-danger-text" style={{color:"var(--steel)"}} onClick={()=>startEdit(r)}>Edit</button>
+                  <button className="btn-danger-text" onClick={()=>deleteRecord(r.id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      {lightbox && (
+        <div className="lightbox-overlay" onClick={()=>setLightbox(null)}>
+          <button className="lightbox-close" onClick={()=>setLightbox(null)}>&times;</button>
+          <img className="lightbox-img" src={lightbox} onClick={e=>e.stopPropagation()} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Admin Portal ---------------- */
+function AdminPortal({records, suppliers, materials}){
+  const [fSupplier,setFSupplier] = useState("");
+  const [fMaterial,setFMaterial] = useState("");
+  const [fFrom,setFFrom] = useState("");
+  const [fTo,setFTo] = useState("");
+  const [reportTab,setReportTab] = useState("supplier");
+
+  const filtered = useMemo(()=>{
+    return records.filter(r=>{
+      if(fSupplier && r.supplier!==fSupplier) return false;
+      if(fMaterial && r.material!==fMaterial) return false;
+      if(fFrom && r.date < fFrom) return false;
+      if(fTo && r.date > fTo) return false;
+      return true;
+    });
+  },[records,fSupplier,fMaterial,fFrom,fTo]);
+
+  const totals = useMemo(()=>{
+    const totalAmount = filtered.reduce((s,r)=>s+(parseFloat(r.finalAmount)||0),0);
+    const paidAmount = filtered.filter(r=>r.paid==="paid").reduce((s,r)=>s+(parseFloat(r.finalAmount)||0),0);
+    const unpaidAmount = totalAmount - paidAmount;
+    return {count:filtered.length, totalAmount, paidAmount, unpaidAmount};
+  },[filtered]);
+
+  function groupBy(keyFn){
+    const map = new Map();
+    filtered.forEach(r=>{
+      const key = keyFn(r) || "—";
+      if(!map.has(key)) map.set(key, {key, qtyByUnit:{}, amount:0, count:0});
+      const g = map.get(key);
+      g.count += 1;
+      g.amount += parseFloat(r.finalAmount)||0;
+      const u = r.unit||"unit";
+      g.qtyByUnit[u] = (g.qtyByUnit[u]||0) + (parseFloat(r.qty)||0);
+    });
+    return [...map.values()].sort((a,b)=>b.amount-a.amount);
+  }
+
+  const bySupplier = useMemo(()=>groupBy(r=>r.supplier),[filtered]);
+  const byMaterial = useMemo(()=>groupBy(r=>r.material),[filtered]);
+  const byDate = useMemo(()=>groupBy(r=>r.date),[filtered]);
+
+  const maxAmount = useMemo(()=>{
+    const arr = [...bySupplier, ...byMaterial, ...byDate].map(g=>g.amount);
+    return Math.max(1, ...arr);
+  },[bySupplier,byMaterial,byDate]);
+
+  function fmtQty(qtyByUnit){
+    return Object.entries(qtyByUnit).map(([u,q])=>`${Math.round(q*100)/100} ${u}`).join(", ");
+  }
+
+  function exportCSV(){
+    const header = ["DMR No","Date","Supplier","Material","Qty","Unit","Vehicle No","Invoice No","Rate","Final Amount","Paid","Payment Date","Logged By"];
+    const rows = filtered.map(r=>[r.dmrNo,r.date,r.supplier,r.material,r.qty,r.unit,r.vehicleNo,r.invoiceNo,r.rate,r.finalAmount,r.paid,r.paymentDate,r.loggedBy]);
+    const csv = [header, ...rows].map(row=>row.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], {type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "dmr_report_" + todayISO() + ".csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const groupData = reportTab==="supplier" ? bySupplier : reportTab==="material" ? byMaterial : byDate;
+  const groupLabel = reportTab==="supplier" ? "Supplier" : reportTab==="material" ? "Material" : "Date";
+
+  return (
+    <div>
+      <h2 className="section-title">Reports &amp; Filters</h2>
+      <p className="section-sub">Filter deliveries and review supplier, material, and date-wise breakdowns.</p>
+
+      <div className="filter-bar">
+        <div className="field">
+          <label>Supplier</label>
+          <select value={fSupplier} onChange={e=>setFSupplier(e.target.value)}>
+            <option value="">All suppliers</option>
+            {suppliers.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>Material</label>
+          <select value={fMaterial} onChange={e=>setFMaterial(e.target.value)}>
+            <option value="">All materials</option>
+            {materials.map(m=><option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>From</label>
+          <input type="date" value={fFrom} onChange={e=>setFFrom(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>To</label>
+          <input type="date" value={fTo} onChange={e=>setFTo(e.target.value)} />
+        </div>
+        <button className="btn btn-ghost" onClick={()=>{setFSupplier("");setFMaterial("");setFFrom("");setFTo("");}}>Clear filters</button>
+        <button className="btn btn-primary" style={{marginLeft:"auto"}} onClick={exportCSV}>Export CSV</button>
+      </div>
+
+      <div className="stat-row">
+        <div className="stat-card">
+          <div className="stat-label">Deliveries</div>
+          <div className="stat-value">{totals.count}</div>
+        </div>
+        <div className="stat-card orange">
+          <div className="stat-label">Total Billed</div>
+          <div className="stat-value mono">{inr(totals.totalAmount)}</div>
+        </div>
+        <div className="stat-card pine">
+          <div className="stat-label">Paid</div>
+          <div className="stat-value mono">{inr(totals.paidAmount)}</div>
+        </div>
+        <div className="stat-card amber">
+          <div className="stat-label">Outstanding</div>
+          <div className="stat-value mono">{inr(totals.unpaidAmount)}</div>
+        </div>
+      </div>
+
+      <div className="report-tabs">
+        <button className={"rtab "+(reportTab==="supplier"?"active":"")} onClick={()=>setReportTab("supplier")}>Supplier-wise</button>
+        <button className={"rtab "+(reportTab==="material"?"active":"")} onClick={()=>setReportTab("material")}>Material-wise</button>
+        <button className={"rtab "+(reportTab==="date"?"active":"")} onClick={()=>setReportTab("date")}>Date-wise</button>
+      </div>
+
+      <div className="table-card">
+        <div className="table-head">
+          <h3>{groupLabel}-wise Breakdown</h3>
+          <span className="hint">{groupData.length} groups</span>
+        </div>
+        <div style={{overflowX:"auto"}}>
+        <table>
+          <thead>
+            <tr><th>{groupLabel}</th><th>Deliveries</th><th>Qty</th><th>Amount</th></tr>
+          </thead>
+          <tbody>
+            {groupData.length===0 && <tr className="empty-row"><td colSpan="4">No records match the current filters.</td></tr>}
+            {groupData.map(g=>(
+              <tr key={g.key}>
+                <td className="group-name">{g.key}</td>
+                <td>{g.count}</td>
+                <td>{fmtQty(g.qtyByUnit)}</td>
+                <td className="mono">
+                  {inr(g.amount)}
+                  <span className="bar-track"><span className="bar-fill" style={{width:(g.amount/maxAmount*100)+"%"}}></span></span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+
+<script>
+  // Safety net: if the app hasn't rendered anything after a few seconds
+  // (e.g. a blocked CDN script), show a clear message instead of a blank page.
+  setTimeout(function(){
+    var root = document.getElementById('root');
+    if(root && root.innerHTML.trim() === ''){
+      root.innerHTML =
+        '<div style="max-width:520px;margin:80px auto;padding:26px 28px;font-family:sans-serif;' +
+        'background:#fff;border:1px solid #ddd;border-radius:10px;text-align:center;color:#1C2226;">' +
+        '<h2 style="margin-top:0;">This page couldn\u2019t finish loading</h2>' +
+        '<p style="color:#4B565C;line-height:1.5;">It relies on a couple of scripts loaded from the internet ' +
+        '(React and Babel). Something blocked them &mdash; usually a firewall, an ad-blocker, or a browser ' +
+        'extension.</p>' +
+        '<p style="color:#4B565C;line-height:1.5;">Try: checking your internet connection, disabling any ad-blocker ' +
+        'for this page, or opening the file in a different browser, then reload.</p>' +
+        '</div>';
+    }
+  }, 4000);
+</script>
+<script>
+  // Register service worker for offline/installable app support.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(err){
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
